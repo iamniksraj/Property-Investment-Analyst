@@ -1,0 +1,160 @@
+<section class="page-header">
+  <p class="eyebrow">Phase 9</p>
+  <h1>AI Investment Analyst</h1>
+  <p class="subtitle">
+    Ask questions about the current comparison workspace or a saved analysis. The assistant explains
+    figures already calculated in this application. It does not change inputs, invent market data, or
+    give guaranteed financial advice.
+  </p>
+</section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Availability</h2>
+    <p>API keys stay on the server. This API is unauthenticated and is for local or otherwise controlled use.</p>
+  </div>
+  @if (status(); as current) {
+    @if (current.configured) {
+      <p class="notice">
+        Provider {{ current.provider }} is configured{{ current.model ? ' (' + current.model + ')' : '' }}.
+        No genuine live Bengaluru market feed is connected.
+      </p>
+    } @else {
+      <p class="banner" role="status">AI is not configured. {{ current.setupGuidance }}</p>
+    }
+    <p class="muted">{{ current.disclaimer }}</p>
+  }
+</section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Ask a question</h2>
+    <p>Read-only. Saved comparisons and market observations are not modified.</p>
+  </div>
+
+  <label class="field">
+    Context
+    <select name="context" [(ngModel)]="contextKey">
+      <option value="workspace">Current comparison workspace ({{ workspaceCount() }} properties)</option>
+      <option value="none">No property context</option>
+      @for (item of saved(); track item.id) {
+        <option [value]="'saved:' + item.id">Saved: {{ item.name }}</option>
+      }
+    </select>
+  </label>
+
+  <label class="check">
+    <input type="checkbox" [(ngModel)]="includeMarketEvidence" />
+    Attach matching market observations (synthetic rows stay labelled)
+  </label>
+
+  <label class="field">
+    Question
+    <textarea
+      name="question"
+      rows="4"
+      maxlength="4000"
+      [(ngModel)]="question"
+      placeholder="Explain why this property's annual cash flow is negative."
+    ></textarea>
+  </label>
+
+  <p class="muted">Example questions</p>
+  <div class="examples">
+    @for (example of examples; track example) {
+      <button type="button" class="chip" (click)="useExample(example)">{{ example }}</button>
+    }
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn-primary" (click)="ask()" [disabled]="loading() || !question.trim()">
+      {{ loading() ? 'Asking…' : 'Ask analyst' }}
+    </button>
+    @if (loading()) {
+      <button type="button" class="btn-secondary" (click)="cancel()">Cancel</button>
+    }
+  </div>
+</section>
+
+@if (error(); as problem) {
+  <section class="banner" role="alert">
+    <strong>{{ problem.title }}</strong>
+    @for (message of problem.messages; track message) {
+      <p>{{ message }}</p>
+    }
+  </section>
+}
+
+@if (answer(); as current) {
+  <section class="panel answer" id="analyst-report">
+    <div class="panel-heading">
+      <h2>{{ current.status === 'not_configured' ? 'AI is not configured' : 'Analyst response' }}</h2>
+      <p>{{ current.disclaimer }}</p>
+    </div>
+
+    @if (current.status === 'not_configured') {
+      <p class="banner" role="status">{{ current.setupGuidance }}</p>
+    }
+
+    @for (warning of current.warnings; track warning) {
+      <p class="notice">{{ warning }}</p>
+    }
+
+    @for (section of current.sections; track section.key) {
+      <article class="section-block">
+        <h3>{{ section.title }}</h3>
+        <p>{{ section.body }}</p>
+      </article>
+    }
+
+    <h3>Evidence</h3>
+    @if (current.evidence.length === 0) {
+      <p class="muted">No saved analysis or market observation was attached.</p>
+    } @else {
+      <ul class="evidence">
+        @for (item of current.evidence; track item.kind + (item.id || item.label)) {
+          <li>
+            @if (item.href) {
+              <a [routerLink]="item.href">{{ item.label }}</a>
+            } @else {
+              <span>{{ item.label }}</span>
+            }
+            @if (item.isSyntheticTestData) {
+              <em>Synthetic — not genuine market evidence</em>
+            }
+            @if (item.isStale) {
+              <em>Stale</em>
+            }
+            @if (item.recordType === 'asking_price') {
+              <em>Asking price, not a completed transaction</em>
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    @if (current.status === 'answered') {
+      <div class="actions">
+        <button type="button" class="btn-secondary" (click)="copyReport()">
+          {{ copied() ? 'Copied' : 'Copy report' }}
+        </button>
+        <button type="button" class="btn-secondary" (click)="printReport()">Print</button>
+      </div>
+      <p class="muted">Copy and print stay in this browser. This report was not saved to the database.</p>
+    }
+  </section>
+}
+
+@if (history().length > 0) {
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>This session</h2>
+      <p>Prompts stay in memory until you leave the page. They are not stored in SQL Server.</p>
+    </div>
+    <ul class="history">
+      @for (item of history(); track item.question) {
+        <li>{{ item.question }}</li>
+      }
+    </ul>
+  </section>
+}

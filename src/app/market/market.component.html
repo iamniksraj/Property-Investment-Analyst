@@ -1,0 +1,569 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Market observations · sourced and dated</p>
+    <h1>Bengaluru market insights</h1>
+    <p class="subtitle">
+      Filter comparable observations, inspect evidence-quality indicators, and compare your own assumptions with
+      asking prices or advertised rents. These records are not a live feed, not a valuation, and not a buy or sell
+      recommendation. Asking prices are advertisements unless the record type is a verified transaction.
+    </p>
+  </div>
+</header>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>Data sources and import status</h2>
+    <p>
+      Latest observation date is when a listing or transaction was observed. Latest import time is when this
+      application stored rows. Those are not the same.
+    </p>
+  </div>
+  @if (providerStatus(); as feed) {
+    <p class="banner" role="status">{{ feed.notes }}</p>
+    <dl class="provenance">
+      <div><dt>Genuine live feed</dt><dd>{{ feed.hasGenuineLiveFeed ? 'Yes' : 'No' }}</dd></div>
+      <div><dt>Genuine observations stored</dt><dd>{{ feed.genuineObservationCount }}</dd></div>
+      <div><dt>Synthetic observations stored</dt><dd>{{ feed.syntheticObservationCount }}</dd></div>
+      <div><dt>Newest observation date</dt><dd>{{ feed.newestObservationDate || 'None' }}</dd></div>
+      <div><dt>Last successful import (UTC)</dt><dd>{{ feed.lastSuccessfulImportUtc || 'None yet' }}</dd></div>
+    </dl>
+    @if (feed.lastImport; as run) {
+      <p class="muted">
+        Last run: {{ run.providerKey }} · {{ run.status }} · inserted {{ run.inserted }}, skipped {{ run.skipped }},
+        duplicates {{ run.duplicates }}, invalid {{ run.invalid }}.
+      </p>
+    }
+    <ul class="muted-list">
+      @for (provider of feed.providers; track provider.key) {
+        <li>
+          {{ provider.displayName }}
+          · {{ provider.configured ? 'configured' : 'not configured' }}
+          · {{ provider.liveFeed ? 'live feed' : 'not a live feed' }}
+          — {{ provider.accessNotes }}
+        </li>
+      }
+    </ul>
+    <p class="muted">{{ feed.ingestionPolicy }}</p>
+  } @else {
+    <p class="muted">Checking configured providers…</p>
+  }
+</section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>1. Select locality and comparable filters</h2>
+    <p>
+      Statistics never mix asking prices with advertised rents or verified transactions. Price per sq. ft. is only
+      published when every usable row uses the same area definition, and only super built-up square feet is stored as
+      a per-sq-ft figure.
+    </p>
+  </div>
+  <form class="search-grid" [formGroup]="form" (ngSubmit)="search()" novalidate>
+    <label class="field">
+      <span>Locality</span>
+      <input type="text" formControlName="locality" autocomplete="address-level3" />
+    </label>
+    <label class="field">
+      <span>Property type</span>
+      <input type="text" formControlName="propertyType" />
+    </label>
+    <label class="field">
+      <span>Configuration</span>
+      <input type="text" formControlName="configuration" placeholder="2 BHK" />
+    </label>
+    <label class="field">
+      <span>Record type</span>
+      <select formControlName="recordType">
+        <option value="">Any (summaries stay separate)</option>
+        <option value="asking_price">Asking price</option>
+        <option value="advertised_rent">Advertised rent</option>
+        <option value="verified_transaction">Verified transaction</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Area type</span>
+      <select formControlName="areaType">
+        <option value="">Any</option>
+        <option value="super_built_up">Super built-up</option>
+        <option value="built_up">Built-up</option>
+        <option value="carpet">Carpet</option>
+        <option value="plot">Plot</option>
+        <option value="unspecified">Unspecified</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Area unit</span>
+      <select formControlName="areaUnit">
+        <option value="">Any</option>
+        <option value="sq_ft">Square feet</option>
+        <option value="sq_m">Square metres</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Verification</span>
+      <select formControlName="verificationStatus">
+        <option value="">Any</option>
+        <option value="unverified">Unverified</option>
+        <option value="source_cited">Source cited</option>
+        <option value="reviewed">Reviewed</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Observed from</span>
+      <input type="date" formControlName="observedFrom" />
+    </label>
+    <label class="field">
+      <span>Observed to</span>
+      <input type="date" formControlName="observedTo" />
+    </label>
+    <label class="check">
+      <input type="checkbox" formControlName="includeSynthetic" />
+      Include labelled synthetic test data
+    </label>
+    <label class="check">
+      <input type="checkbox" formControlName="includeOutliers" />
+      List flagged outliers in the table
+    </label>
+    <button type="submit" class="btn-primary" [disabled]="busy()">Load insights</button>
+  </form>
+  @if (statusMessage()) {
+    <p class="status-ok">{{ statusMessage() }}</p>
+  }
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+    @if (fieldErrors().length) {
+      <ul class="error-list">
+        @for (message of fieldErrors(); track message) {
+          <li>{{ message }}</li>
+        }
+      </ul>
+    }
+  }
+</section>
+
+@if (busy() && !searchResult()) {
+  <section class="panel" aria-live="polite">
+    <p>Loading observations from the API…</p>
+  </section>
+}
+
+@if (searchResult(); as result) {
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>2. Sample quality</h2>
+      <p>
+        {{ result.totalCount }} matching record{{ result.totalCount === 1 ? '' : 's' }}
+        @if (result.oldestObservedOn && result.newestObservedOn) {
+          · this page observed {{ result.oldestObservedOn }} to {{ result.newestObservedOn }}
+        }
+      </p>
+    </div>
+    <ul class="warnings">
+      @if (result.totalCount === 0) {
+        <li>Empty sample — nothing matched these filters.</li>
+      }
+      @if (result.isSparse) {
+        <li>Sparse sample — too few records to describe this as a market average or valuation.</li>
+      }
+      @if (result.containsStale) {
+        <li>At least one listed observation is more than 180 days old (product freshness setting, not a market standard).</li>
+      }
+      @if (result.containsUnverified) {
+        <li>At least one listed observation is unverified.</li>
+      }
+      @if (result.containsSynthetic) {
+        <li>This page includes synthetic test fixtures. They are labelled and are not live listings.</li>
+      }
+      @if (result.onlySyntheticAvailable) {
+        <li class="error">Only synthetic test data exists for this locality. No genuine market conclusion can be drawn.</li>
+      }
+    </ul>
+  </section>
+}
+
+@if (stats(); as summary) {
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>3. Locality summaries</h2>
+      <p>{{ summary.notes }}</p>
+    </div>
+    @if (summary.usingSyntheticTestData) {
+      <p class="banner" role="status">Synthetic-only statistic. `source_cited` does not mean the row is a genuine listing.</p>
+    }
+    @if (summary.onlySyntheticAvailable && !summary.usingSyntheticTestData) {
+      <p class="banner" role="status">
+        Genuine observations are absent. Tick “Include labelled synthetic test data” to inspect the fixture. Statistics
+        stay empty until you do.
+      </p>
+    }
+    @if (summary.buckets.length === 0) {
+      <p class="muted">Insufficient data — no eligible observations remain after filters and synthetic-mixing rules.</p>
+    } @else {
+      <div class="bucket-grid">
+        @for (bucket of summary.buckets; track bucket.recordType) {
+          <article class="inner-card">
+            <h3>{{ recordLabel(bucket.recordType) }}</h3>
+            <p>{{ bucket.label }}</p>
+            @if (bucket.insufficientData) {
+              <p class="error">Insufficient data — no usable amounts after exclusions.</p>
+            }
+            <dl>
+              <div><dt>Matched</dt><dd>{{ bucket.matchedCount }}</dd></div>
+              <div><dt>Used in statistics</dt><dd>{{ bucket.sampleSize }}</dd></div>
+              <div><dt>Outliers flagged</dt><dd>{{ bucket.excludedOutliers }}</dd></div>
+              <div><dt>Observed</dt>
+                <dd>
+                  @if (bucket.oldestObservedOn && bucket.newestObservedOn) {
+                    {{ bucket.oldestObservedOn }} to {{ bucket.newestObservedOn }}
+                  } @else {
+                    Not published
+                  }
+                </dd>
+              </div>
+              <div><dt>Minimum</dt>
+                <dd>{{ bucket.minAmount != null ? formatInr(bucket.minAmount) : 'Not published' }}</dd>
+              </div>
+              <div><dt>Maximum</dt>
+                <dd>{{ bucket.maxAmount != null ? formatInr(bucket.maxAmount) : 'Not published' }}</dd>
+              </div>
+              <div><dt>Median</dt>
+                <dd>
+                  @if (bucket.medianAmount != null) {
+                    {{ formatInr(bucket.medianAmount) }}
+                    @if (bucket.isSparse) { (indicative, fewer than 5) }
+                  } @else {
+                    Not published
+                  }
+                </dd>
+              </div>
+              <div><dt>25th / 75th percentile</dt>
+                <dd>
+                  @if (bucket.percentile25 != null && bucket.percentile75 != null) {
+                    {{ formatInr(bucket.percentile25) }} / {{ formatInr(bucket.percentile75) }}
+                  } @else {
+                    Needs at least 5 usable records
+                  }
+                </dd>
+              </div>
+              <div><dt>Median ₹ / sq. ft.</dt>
+                <dd>
+                  @if (bucket.medianPricePerSqFt != null) {
+                    {{ formatInr(bucket.medianPricePerSqFt) }} asking
+                  } @else if (bucket.medianMonthlyRentPerSqFt != null) {
+                    {{ formatInr(bucket.medianMonthlyRentPerSqFt) }} advertised rent / month
+                  } @else {
+                    Not published
+                  }
+                </dd>
+              </div>
+            </dl>
+            <h4>Evidence quality (not a fair-price probability)</h4>
+            <dl>
+              <div><dt>Sample</dt><dd>{{ bucket.quality.sampleSize }}</dd></div>
+              <div><dt>Recency</dt><dd>{{ bucket.quality.recency }}</dd></div>
+              <div><dt>Verification</dt><dd>{{ bucket.quality.verification }}</dd></div>
+              <div><dt>Area</dt><dd>{{ bucket.quality.areaComparability }}</dd></div>
+              <div><dt>Source fields</dt><dd>{{ bucket.quality.sourceCompleteness }}</dd></div>
+              <div><dt>Synthetic</dt><dd>{{ bucket.quality.synthetic }}</dd></div>
+              <div><dt>Outliers</dt><dd>{{ bucket.quality.outliers }}</dd></div>
+            </dl>
+            <ul class="muted-list">
+              @for (note of bucket.quality.notes; track note) {
+                <li>{{ note }}</li>
+              }
+            </ul>
+            @if (bucket.exclusions.length) {
+              <h4>Exclusions</h4>
+              <ul>
+                @for (item of bucket.exclusions; track item.reason) {
+                  <li>{{ item.count }} · {{ item.reason }} — {{ item.explanation }}</li>
+                }
+              </ul>
+            }
+            @if (bucket.mixedAreaDefinitions) {
+              <p class="error">Area definitions in this bucket are mixed, so per-sq-ft figures are omitted.</p>
+            }
+            <p class="muted">{{ bucket.methodology }}</p>
+          </article>
+        }
+      </div>
+    }
+
+    <div class="panel-heading history-heading">
+      <h3>Monthly observation counts</h3>
+      <p>{{ summary.history.reason }} Interval: {{ summary.history.interval }}.</p>
+    </div>
+    @if (summary.history.points.length === 0) {
+      <p class="muted">No history interval to plot.</p>
+    } @else {
+      <div class="chart" role="img" [attr.aria-label]="summary.history.reason">
+        @for (bar of historyBars(); track bar.yearMonth) {
+          <div class="chart-col">
+            <div class="chart-bar-wrap">
+              <div
+                class="chart-bar"
+                [class.gap]="bar.count === 0"
+                [class.thin]="bar.insufficientMonth && bar.count > 0"
+                [style.height.%]="bar.heightPercent"
+              ></div>
+            </div>
+            <span class="chart-count">{{ bar.count }}</span>
+            <span class="chart-label">{{ bar.yearMonth }}</span>
+            <span class="chart-flag">
+              @if (bar.count === 0) { Gap }
+              @else if (bar.insufficientMonth) { Thin }
+              @else { Count }
+            </span>
+          </div>
+        }
+      </div>
+      <table class="data-table">
+        <caption>Accessible history counts. Empty months are gaps; medians are omitted when a month is thin or when the series is synthetic.</caption>
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Observation count</th>
+            <th>Median amount</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (point of summary.history.points; track point.yearMonth) {
+            <tr>
+              <td>{{ point.yearMonth }}</td>
+              <td>{{ point.count }}</td>
+              <td>{{ point.medianAmount != null ? formatInr(point.medianAmount) : 'Not published' }}</td>
+              <td>
+                @if (point.count === 0) { Gap — no interpolation }
+                @else if (point.insufficientMonth) { Insufficient month }
+                @else { Median published }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+}
+
+@if (searchResult(); as result) {
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>4. Supporting observations</h2>
+      <p>
+        Showing {{ result.count }} of {{ result.totalCount }} (offset {{ result.skip }}). Use in comparison adds a new
+        property and never overwrites existing inputs.
+      </p>
+    </div>
+    @if (result.items.length === 0) {
+      <p class="muted">No rows to list.</p>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Observed</th>
+              <th>Type</th>
+              <th>Project</th>
+              <th>Config</th>
+              <th>Amount</th>
+              <th>Area</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of result.items; track item.id) {
+              <tr>
+                <td>{{ item.observedOn }}</td>
+                <td>{{ recordLabel(item.recordType) }}</td>
+                <td>{{ item.builderProject }}</td>
+                <td>{{ item.configuration }}</td>
+                <td>{{ formatInr(item.amount) }}</td>
+                <td>
+                  @if (item.areaValue != null) {
+                    {{ item.areaValue }} {{ item.areaUnit.split('_').join(' ') }}
+                    ({{ areaLabel(item.areaType) }})
+                  } @else {
+                    Not stated
+                  }
+                </td>
+                <td>
+                  {{ item.verificationStatus.split('_').join(' ') }}
+                  @if (item.isSyntheticTestData) { · synthetic test data }
+                  @if (item.isStale) { · stale }
+                  @if (item.isOutlier) { · outlier }
+                  @if (!item.hasCompleteSource) { · incomplete source }
+                </td>
+                <td>
+                  <button type="button" class="btn-secondary" (click)="inspect(item)" [disabled]="busy()">Inspect</button>
+                  <button type="button" class="btn-secondary" (click)="useInComparison(item)" [disabled]="busy() || !canAdd()">
+                    Use in comparison
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button type="button" class="btn-secondary" (click)="previousPage()" [disabled]="busy() || result.skip === 0">Previous</button>
+        <button type="button" class="btn-secondary" (click)="nextPage()" [disabled]="busy() || result.skip + result.take >= result.totalCount">Next</button>
+      </div>
+    }
+  </section>
+}
+
+@if (selected(); as item) {
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Provenance</h2>
+      <p>{{ item.builderProject }} · {{ item.locality }}</p>
+    </div>
+    <dl class="provenance">
+      <div><dt>Source</dt><dd>{{ item.sourceName }}</dd></div>
+      <div><dt>Source record</dt><dd>{{ item.sourceRecordId || 'Not supplied' }}</dd></div>
+      <div>
+        <dt>Source URL</dt>
+        <dd>
+          @if (item.sourceUrl) {
+            <a [href]="item.sourceUrl" rel="nofollow noopener" target="_blank">{{ item.sourceUrl }}</a>
+          } @else {
+            Not supplied — do not invent one
+          }
+        </dd>
+      </div>
+      <div><dt>Observed</dt><dd>{{ item.observedOn }}</dd></div>
+      <div><dt>Imported (UTC)</dt><dd>{{ item.importedUtc }}</dd></div>
+      <div><dt>Provider</dt><dd>{{ item.providerKey || 'Not recorded' }}</dd></div>
+      <div><dt>Verification</dt><dd>{{ item.verificationStatus.split('_').join(' ') }}</dd></div>
+      <div><dt>Synthetic</dt><dd>{{ item.isSyntheticTestData ? 'Yes — test fixture' : 'No' }}</dd></div>
+      <div><dt>Outlier</dt><dd>{{ item.isOutlier ? 'Flagged (1.5×IQR on amount)' : 'Not flagged' }}</dd></div>
+      <div><dt>Quality notes</dt><dd>{{ item.qualityNotes || 'None' }}</dd></div>
+      <div><dt>Licence / usage</dt><dd>{{ item.licenceOrUsageNotes || 'None recorded' }}</dd></div>
+    </dl>
+  </section>
+}
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>5. Compare a workspace property with observations</h2>
+    <p>
+      Uses the property’s purchase price, super built-up area and monthly rent. Differences are (assumption − median) /
+      median. This is not proof the property is undervalued or overpriced, and it is separate from net profit and IRR.
+      Inputs are not replaced.
+    </p>
+  </div>
+  @if (workspaceProperties().length === 0) {
+    <p class="muted">
+      Add a property on
+      <a routerLink="/compare">Compare</a>
+      or prefill one from an observation first.
+    </p>
+  } @else {
+    <div class="assumption-row">
+      <label class="field">
+        <span>Workspace property</span>
+        <select [value]="selectedPropertyId()" (change)="selectedPropertyId.set($any($event.target).value)">
+          <option value="">Select</option>
+          @for (property of workspaceProperties(); track property.id) {
+            <option [value]="property.id">{{ property.name || property.id }} · {{ formatInr(property.purchasePrice || 0) }}</option>
+          }
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" [checked]="acknowledgeIncompatible()" (change)="acknowledgeIncompatible.set($any($event.target).checked)" />
+        I acknowledge area definitions may be incompatible
+      </label>
+      <button type="button" class="btn-primary" (click)="compareAssumption()" [disabled]="busy()">Compare assumptions</button>
+    </div>
+  }
+  @if (assumption(); as report) {
+    <p class="banner" role="status">{{ report.disclaimer }}</p>
+    @for (metric of [report.askingPrice, report.advertisedRent]; track $index) {
+      @if (metric) {
+        <article class="inner-card">
+          <h3>{{ recordLabel(metric.recordType) }}</h3>
+          <p>Status: {{ metric.status.split('_').join(' ') }} · comparable n={{ metric.comparableCount }}</p>
+          <dl>
+            <div><dt>Your amount</dt><dd>{{ metric.userAmount != null ? formatInr(metric.userAmount) : 'Not supplied' }}</dd></div>
+            <div><dt>Median observation</dt><dd>{{ metric.medianAmount != null ? formatInr(metric.medianAmount) : 'Not published' }}</dd></div>
+            <div>
+              <dt>Difference (amount)</dt>
+              <dd>
+                @if (metric.amountDifference != null) {
+                  {{ formatInr(metric.amountDifference) }}
+                  @if (metric.amountDifferencePercent != null) {
+                    ({{ metric.amountDifferencePercent }}%)
+                  }
+                } @else {
+                  Not published
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Your ₹ / sq. ft.</dt>
+              <dd>{{ metric.userPerSqFt != null ? formatInr(metric.userPerSqFt) : 'Not calculated' }}</dd>
+            </div>
+            <div>
+              <dt>Median ₹ / sq. ft.</dt>
+              <dd>{{ metric.medianPerSqFt != null ? formatInr(metric.medianPerSqFt) : 'Not calculated' }}</dd>
+            </div>
+            <div>
+              <dt>Observed</dt>
+              <dd>
+                @if (metric.oldestObservedOn && metric.newestObservedOn) {
+                  {{ metric.oldestObservedOn }} to {{ metric.newestObservedOn }}
+                } @else {
+                  —
+                }
+              </dd>
+            </div>
+          </dl>
+          <ul>
+            @for (note of metric.limitations; track note) {
+              <li>{{ note }}</li>
+            }
+          </ul>
+        </article>
+      }
+    }
+  }
+</section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <h2>CSV import</h2>
+    <p>
+      Preview first, then confirm. Duplicates (same source, listing identity, amount and observation date) are
+      skipped. Existing verified or newer records are never overwritten. Template:
+      <code>data/bengaluru-market-observations.synthetic.csv</code>.
+    </p>
+  </div>
+  <div class="import-actions">
+    <input type="file" accept=".csv,text/csv" (change)="onFile($event)" />
+    <button type="button" class="btn-secondary" (click)="runPreview()" [disabled]="busy()">Preview</button>
+    <button type="button" class="btn-primary" (click)="runCommit()" [disabled]="busy() || !preview()">
+      Confirm import
+    </button>
+  </div>
+  @if (preview(); as result) {
+    <p class="muted">
+      {{ result.totalRows }} rows · {{ result.valid }} valid · {{ result.invalid }} invalid ·
+      {{ result.duplicates }} duplicate · {{ result.outliers }} outlier · {{ result.inserted }} inserted
+    </p>
+    <ul class="error-list">
+      @for (row of result.rows; track row.lineNumber) {
+        @if (row.status !== 'valid') {
+          <li>Line {{ row.lineNumber }}: {{ row.status }} — {{ row.errors.join(' ') || 'Ready' }}</li>
+        }
+      }
+    </ul>
+  }
+</section>
+
+<p class="muted">
+  Comparison workspace: <a routerLink="/compare">open saved analyses</a>. Financial calculations still run in the
+  browser from your inputs, not from this table.
+</p>

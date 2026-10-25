@@ -1,0 +1,8 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=PropertyInvestmentAnalyst;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True"
+  },
+  "Cors": {
+    "AllowedOrigins": [ "http://localhost:4200" ]
+  }
+}

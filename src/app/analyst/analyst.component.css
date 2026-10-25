@@ -1,0 +1,152 @@
+:host {
+  display: block;
+  padding: 1.75rem 1.5rem 2.5rem;
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.4rem;
+  color: var(--gold);
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+}
+
+.subtitle,
+.muted,
+.panel-heading p {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.subtitle {
+  margin: 0.45rem 0 0;
+  max-width: 46rem;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 1.3rem 1.35rem;
+  margin-bottom: 1.15rem;
+}
+
+.panel-heading h2,
+.section-block h3,
+.answer h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+
+.field,
+.check {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0.85rem 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+  font-weight: 400;
+}
+
+.check {
+  flex-direction: row;
+  align-items: center;
+  font-weight: 500;
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.banner,
+.notice {
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  margin: 0.7rem 0;
+  line-height: 1.45;
+}
+
+.banner {
+  background: #f8e8d8;
+  border: 1px solid #e8c9a4;
+}
+
+.notice {
+  background: #eef3ea;
+  border: 1px solid #d5e2cc;
+}
+
+.section-block {
+  margin: 1rem 0;
+}
+
+.section-block p,
+.evidence,
+.history {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.evidence,
+.history {
+  padding-left: 1.1rem;
+}
+
+.evidence em {
+  display: inline-block;
+  margin-left: 0.4rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media print {
+  .examples,
+  .actions,
+  .page-header {
+    display: none;
+  }
+}

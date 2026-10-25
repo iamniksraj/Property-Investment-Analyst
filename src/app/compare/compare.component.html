@@ -1,0 +1,519 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Comparison workspace · up to three properties</p>
+    <h1>Property comparison</h1>
+    <p class="subtitle">
+      Compare independent residential cases using the same yield, mortgage and scenario engines as the
+      dashboard. Figures are modelled, not live Bengaluru listings.
+    </p>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="btn-primary" (click)="addProperty()" [disabled]="!canAdd() || busy()">
+      Add property
+    </button>
+    <button type="button" class="btn-secondary" (click)="loadSamples()" [disabled]="busy()">
+      Load illustrative samples
+    </button>
+    @if (hasProperties()) {
+      <button type="button" class="btn-secondary" (click)="clearAll()" [disabled]="busy()">Clear all</button>
+    }
+  </div>
+</header>
+
+<section class="panel library">
+  <div class="panel-heading">
+    <h2>Saved comparisons</h2>
+    <p>
+      Inputs and scenario assumptions are stored in SQL Server. Yield, EMI, cash-flow and IRR figures are
+      recalculated in this browser using the existing TypeScript engine. This API is not authenticated and is
+      not intended for unrestricted public deployment.
+    </p>
+  </div>
+
+  <div class="analysis-meta" [formGroup]="form">
+    <label class="field field-span-2">
+      <span>Analysis name</span>
+      <input type="text" formControlName="analysisName" autocomplete="off" />
+      @if (form.controls.analysisName.invalid && (form.controls.analysisName.touched || form.controls.analysisName.dirty)) {
+        <small class="error">Enter a comparison name.</small>
+      }
+    </label>
+    <label class="field field-span-2">
+      <span>Description (optional)</span>
+      <input type="text" formControlName="analysisDescription" autocomplete="off" />
+    </label>
+    <div class="library-actions">
+      <button
+        type="button"
+        class="btn-primary"
+        (click)="save()"
+        [disabled]="busy() || !hasProperties()"
+      >
+        {{ meta().savedId ? 'Update saved comparison' : 'Save comparison' }}
+      </button>
+      @if (dirty()) {
+        <span class="unsaved">Unsaved changes</span>
+      }
+      @if (busy()) {
+        <span class="muted-status">Working…</span>
+      }
+    </div>
+  </div>
+
+  @if (statusMessage()) {
+    <p class="status-ok">{{ statusMessage() }}</p>
+  }
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+    @if (fieldErrors().length) {
+      <ul class="error-list">
+        @for (message of fieldErrors(); track message) {
+          <li>{{ message }}</li>
+        }
+      </ul>
+    }
+  }
+
+  @if (libraryLoading()) {
+    <p class="muted-status">Loading saved analyses…</p>
+  } @else if (libraryError()) {
+    <p class="error">{{ libraryError() }}</p>
+  } @else if (library().length === 0) {
+    <p class="muted-status">No saved comparisons yet.</p>
+  } @else {
+    <ul class="saved-list">
+      @for (item of library(); track item.id) {
+        <li>
+          <div>
+            <strong>{{ item.name }}</strong>
+            <small>{{ item.propertyCount }} properties · updated {{ formatTimestamp(item.updatedUtc) }}</small>
+          </div>
+          <div class="saved-actions">
+            <button type="button" class="btn-secondary" (click)="openSaved(item.id)" [disabled]="busy()">
+              Open
+            </button>
+            <button type="button" class="btn-secondary" (click)="deleteSaved(item.id, item.name)" [disabled]="busy()">
+              Delete
+            </button>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>
+
+@if (!hasProperties()) {
+  <section class="panel empty-state">
+    <h2>No properties yet</h2>
+    <p>
+      Add up to three apartments, or load two labelled sample cases. Sample prices and rents are
+      illustrative only — they are not verified market data.
+    </p>
+  </section>
+} @else {
+  <form [formGroup]="form" novalidate>
+    <div class="editor-grid" formArrayName="properties">
+      @for (group of properties.controls; track group.get('id')?.value; let index = $index) {
+        <section class="panel editor" [formGroupName]="index">
+          <div class="editor-head">
+            <h2>{{ group.get('name')?.value || 'Untitled property' }}</h2>
+            <button type="button" class="btn-secondary" (click)="removeProperty(index)">Remove</button>
+          </div>
+
+          <div class="field-grid">
+            <label class="field field-span-2">
+              <span>Property name</span>
+              <input type="text" formControlName="name" autocomplete="off" />
+              @if (showError(group, 'name')) {
+                <small class="error">Enter a property name.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Locality</span>
+              <input type="text" formControlName="locality" autocomplete="address-level3" />
+            </label>
+            <label class="field">
+              <span>Builder / project</span>
+              <input type="text" formControlName="builderProject" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>Property type</span>
+              <input type="text" formControlName="propertyType" />
+            </label>
+            <label class="field">
+              <span>Purchase price (INR)</span>
+              <input type="number" formControlName="purchasePrice" min="1" step="1000" inputmode="numeric" />
+              @if (showError(group, 'purchasePrice')) {
+                <small class="error">Enter a price greater than zero.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Super built-up area (sq. ft.)</span>
+              <input type="number" formControlName="superBuiltUpAreaSqFt" min="1" step="1" inputmode="decimal" />
+              @if (showError(group, 'superBuiltUpAreaSqFt')) {
+                <small class="error">Enter an area greater than zero.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Expected monthly rent (INR)</span>
+              <input type="number" formControlName="monthlyRent" min="0" step="500" inputmode="numeric" />
+              @if (showError(group, 'monthlyRent')) {
+                <small class="error">Enter rent as zero or more.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Monthly maintenance (INR)</span>
+              <input type="number" formControlName="monthlyMaintenance" min="0" step="100" inputmode="numeric" />
+              @if (showError(group, 'monthlyMaintenance')) {
+                <small class="error">Enter maintenance as zero or more.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Down payment (%)</span>
+              <input type="number" formControlName="downPaymentPercent" min="0" max="100" step="0.1" />
+              @if (showError(group, 'downPaymentPercent')) {
+                <small class="error">Enter 0 to 100.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Annual interest rate (%)</span>
+              <input type="number" formControlName="annualInterestRatePercent" min="0" step="0.05" />
+              @if (showError(group, 'annualInterestRatePercent')) {
+                <small class="error">Enter 0 or more.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Loan tenure (years)</span>
+              <input type="number" formControlName="loanTenureYears" min="0.01" step="1" />
+              @if (showError(group, 'loanTenureYears')) {
+                <small class="error">Enter a tenure greater than zero.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Acquisition costs (%)</span>
+              <input type="number" formControlName="acquisitionCostPercent" min="0" step="0.1" />
+              @if (showError(group, 'acquisitionCostPercent')) {
+                <small class="error">Enter 0 or more.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Holding period (years)</span>
+              <input type="number" formControlName="holdingPeriodYears" min="0" step="1" />
+              @if (showError(group, 'holdingPeriodYears')) {
+                <small class="error">Enter 0 or more.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Snapshot vacancy (%)</span>
+              <input type="number" formControlName="vacancyPercent" min="0" max="100" step="0.1" />
+            </label>
+            <label class="field">
+              <span>Annual property tax (INR)</span>
+              <input type="number" formControlName="annualPropertyTax" min="0" step="1000" />
+            </label>
+            <label class="field">
+              <span>Annual repairs (INR)</span>
+              <input type="number" formControlName="annualRepairAndMaintenance" min="0" step="1000" />
+            </label>
+          </div>
+
+          <p class="assumption">Scenario rates are modelling assumptions, not forecasts. Each property has its own copy.</p>
+          <div class="scenario-edit-grid">
+            @for (name of scenarioOrder; track name) {
+              <div class="scenario-edit" [formGroupName]="name">
+                <h3>{{ scenarioLabels[name] }}</h3>
+                <label class="field">
+                  <span>Appreciation % / yr</span>
+                  <input type="number" formControlName="propertyAppreciationPercent" min="0" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>Rent growth % / yr</span>
+                  <input type="number" formControlName="rentGrowthPercent" min="0" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>Vacancy %</span>
+                  <input type="number" formControlName="vacancyPercent" min="0" max="100" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>Opex growth % / yr</span>
+                  <input type="number" formControlName="operatingExpenseGrowthPercent" min="0" step="0.1" />
+                </label>
+                <label class="field">
+                  <span>Selling costs %</span>
+                  <input type="number" formControlName="sellingCostPercent" min="0" max="100" step="0.1" />
+                </label>
+              </div>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  </form>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Side-by-side metrics</h2>
+      <p>
+        Gross yield is potential rent over price. Cash flow after debt service is after opex and EMIs.
+        Net profit and IRR come from the Base scenario unless labelled otherwise. They are not the same metric.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th scope="col">Metric</th>
+            @for (row of view().rows; track row.id) {
+              <th scope="col">{{ row.draft.name || 'Untitled' }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="section-row"><th colspan="100%">Acquisition and rental economics</th></tr>
+          <tr>
+            <th scope="row"><abbr title="Purchase consideration entered for the apartment.">Purchase price</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.draft.purchasePrice == null ? '—' : formatInr(row.draft.purchasePrice) }}
+                <small>{{ row.draft.purchasePrice == null ? '' : formatInrCompact(row.draft.purchasePrice) }}</small>
+              </td>
+            }
+          </tr>
+          <tr>
+            <th scope="row">Super built-up area</th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.draft.superBuiltUpAreaSqFt == null ? '—' : row.draft.superBuiltUpAreaSqFt + ' sq. ft.' }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Purchase price divided by super built-up area.">Price per sq. ft.</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.snapshot ? formatInr(row.snapshot.pricePerSqFt, 2) : '—' }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row">Monthly rent</th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.draft.monthlyRent == null ? '—' : formatInr(row.draft.monthlyRent) }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Potential annual rent ÷ purchase price. Not vacancy-adjusted and not after loan payments.">Gross annual rental yield</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td [class.leader]="isLeader(view().highlights.highestGrossYieldIds, row.id)">
+                {{ row.snapshot ? formatPercent(row.snapshot.grossAnnualRentalYieldPercent) : '—' }}
+              </td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Potential annual rent reduced by the snapshot vacancy percentage.">Vacancy-adjusted annual rent</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.mortgage ? formatInr(row.mortgage.annualRentAfterVacancy) : '—' }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Society maintenance + property tax + repairs. Vacancy is not included here.">Annual operating expenses</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.mortgage ? formatInr(row.mortgage.annualOperatingExpenses) : '—' }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Vacancy-adjusted rent minus operating expenses minus 12 EMIs, with rent and opex held constant.">Annual cash flow after debt service</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td
+                [class.negative]="(row.mortgage?.annualCashFlowAfterOperatingExpensesAndLoanPayments ?? 0) < 0"
+                [class.leader]="isLeader(view().highlights.lowestCashFlowShortfallIds, row.id)"
+              >
+                {{ row.mortgage ? formatInr(row.mortgage.annualCashFlowAfterOperatingExpensesAndLoanPayments) : '—' }}
+              </td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Down payment plus one-time acquisition costs. Not the full purchase price.">Initial cash to acquire</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td [class.leader]="isLeader(view().highlights.lowestInitialCashIds, row.id)">
+                {{ row.mortgage ? formatInr(row.mortgage.totalInitialAcquisitionCash) : '—' }}
+              </td>
+            }
+          </tr>
+          <tr class="section-row"><th colspan="100%">Financing and exit</th></tr>
+          <tr>
+            <th scope="row">Monthly EMI</th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.mortgage ? formatInr(row.mortgage.monthlyEmi, 2) : '—' }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Remaining principal after the holding period, from the reducing-balance schedule.">Outstanding loan at exit</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.mortgage ? formatInr(row.mortgage.outstandingLoanBalanceAfterHoldingPeriod) : '—' }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Base-case property value at the end of the holding period.">Projected exit value (Base)</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.base ? formatInr(row.base.exitPropertyValue) : '—' }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row">Selling costs (Base)</th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.base ? formatInr(row.base.sellingCosts) : '—' }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Exit value minus selling costs minus outstanding loan. Loan is subtracted once.">Net sale proceeds (Base)</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ row.base ? formatInr(row.base.netSaleProceeds) : '—' }}</td>
+            }
+          </tr>
+          <tr class="section-row"><th colspan="100%">Investment returns</th></tr>
+          <tr>
+            <th scope="row"><abbr title="Sum of annual operating cash flows after debt service over the holding period. Does not include the sale.">Cumulative cash flow after DS (Base)</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td [class.negative]="(row.base?.cumulativeRentalCashFlowAfterDebtService ?? 0) < 0">
+                {{ row.base ? formatInr(row.base.cumulativeRentalCashFlowAfterDebtService) : '—' }}
+              </td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Rental cash flows plus net sale proceeds, minus initial cash invested. Not an annualised return.">Net profit (Base)</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td
+                [class.negative]="(row.base?.netProfit ?? 0) < 0"
+                [class.leader]="isLeader(view().highlights.highestBaseNetProfitIds, row.id)"
+              >
+                {{ row.base ? formatInr(row.base.netProfit) : '—' }}
+              </td>
+            }
+          </tr>
+          <tr>
+            <th scope="row"><abbr title="Annualised return on the equity cash-flow series: initial outflow, yearly cash flow after debt service, and terminal net sale proceeds.">Annualised equity IRR (Base)</abbr></th>
+            @for (row of view().rows; track row.id) {
+              <td [class.leader]="isLeader(view().highlights.bestBaseIrrIds, row.id)">
+                {{ formatIrr(row.base?.annualisedEquityIrr ?? null) }}
+              </td>
+            }
+          </tr>
+          <tr>
+            <th scope="row">Net profit (Conservative)</th>
+            @for (row of view().rows; track row.id) {
+              <td
+                [class.negative]="(row.conservative?.netProfit ?? 0) < 0"
+                [class.leader]="isLeader(view().highlights.strongestConservativeIds, row.id)"
+              >
+                {{ row.conservative ? formatInr(row.conservative.netProfit) : '—' }}
+              </td>
+            }
+          </tr>
+          <tr>
+            <th scope="row">Annualised equity IRR (Conservative)</th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ formatIrr(row.conservative?.annualisedEquityIrr ?? null) }}</td>
+            }
+          </tr>
+          <tr>
+            <th scope="row">Net profit (Optimistic)</th>
+            @for (row of view().rows; track row.id) {
+              <td [class.negative]="(row.optimistic?.netProfit ?? 0) < 0">
+                {{ row.optimistic ? formatInr(row.optimistic.netProfit) : '—' }}
+              </td>
+            }
+          </tr>
+          <tr>
+            <th scope="row">Annualised equity IRR (Optimistic)</th>
+            @for (row of view().rows; track row.id) {
+              <td>{{ formatIrr(row.optimistic?.annualisedEquityIrr ?? null) }}</td>
+            }
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mobile-cards">
+      @for (row of view().rows; track row.id) {
+        <article class="panel inner-card">
+          <h3>{{ row.draft.name || 'Untitled' }}</h3>
+          <p class="assumption">{{ row.draft.locality }} · {{ row.draft.builderProject }}</p>
+          <dl>
+            <div><dt>Gross yield</dt><dd>{{ row.snapshot ? formatPercent(row.snapshot.grossAnnualRentalYieldPercent) : '—' }}</dd></div>
+            <div><dt>Initial cash</dt><dd>{{ row.mortgage ? formatInr(row.mortgage.totalInitialAcquisitionCash) : '—' }}</dd></div>
+            <div><dt>Annual CF after DS</dt>
+              <dd [class.negative]="(row.mortgage?.annualCashFlowAfterOperatingExpensesAndLoanPayments ?? 0) < 0">
+                {{ row.mortgage ? formatInr(row.mortgage.annualCashFlowAfterOperatingExpensesAndLoanPayments) : '—' }}
+              </dd>
+            </div>
+            <div><dt>Base net profit</dt>
+              <dd [class.negative]="(row.base?.netProfit ?? 0) < 0">{{ row.base ? formatInr(row.base.netProfit) : '—' }}</dd>
+            </div>
+            <div><dt>Base IRR</dt><dd>{{ formatIrr(row.base?.annualisedEquityIrr ?? null) }}</dd></div>
+          </dl>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Comparison summary</h2>
+      <p>
+        Each line names a leader on one metric only. No property is ranked as the best overall investment.
+        There is no composite score.
+      </p>
+    </div>
+    <ul class="summary-list">
+      <li>Highest gross rental yield: <strong>{{ namesById(view().highlights.highestGrossYieldIds) }}</strong></li>
+      <li>Lowest initial cash required: <strong>{{ namesById(view().highlights.lowestInitialCashIds) }}</strong></li>
+      <li>Best Base-case annualised equity IRR: <strong>{{ namesById(view().highlights.bestBaseIrrIds) }}</strong></li>
+      <li>Strongest Conservative-case net profit: <strong>{{ namesById(view().highlights.strongestConservativeIds) }}</strong></li>
+      <li>Highest Base-case net profit: <strong>{{ namesById(view().highlights.highestBaseNetProfitIds) }}</strong></li>
+      <li>
+        Lowest annual cash-flow shortfall:
+        <strong>
+          @if (view().highlights.lowestCashFlowShortfallIds.length) {
+            {{ namesById(view().highlights.lowestCashFlowShortfallIds) }}
+          } @else {
+            None of the ready properties show a year-one cash-flow shortfall.
+          }
+        </strong>
+      </li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <h2>Investment assessment</h2>
+      <p>
+        Qualitative readings of the calculated numbers. They are not buy, negotiate or avoid advice.
+      </p>
+    </div>
+    <div class="assessment-grid">
+      @for (row of view().rows; track row.id) {
+        <article class="inner-card">
+          <h3>{{ row.draft.name || 'Untitled' }}</h3>
+          @if (row.assessment) {
+            <ul>
+              @for (note of row.assessment.notes; track note) {
+                <li>{{ note }}</li>
+              }
+            </ul>
+          } @else {
+            <p class="assumption">Complete the required financial inputs to see an assessment.</p>
+          }
+        </article>
+      }
+    </div>
+  </section>
+}
+
+<section class="panel disclaimer">
+  <h2>Assumptions and disclaimer</h2>
+  <p>
+    Comparison uses the dashboard engines: Phase 1 yield, Phase 2 constant-rent mortgage snapshot, and
+    Phase 3 year-by-year scenarios. Editing a property here does not change the dashboard form.
+  </p>
+  <p>
+    Sample properties are fictional illustrations. Nothing on this page is financial, legal or tax advice,
+    or a guaranteed return.
+  </p>
+</section>

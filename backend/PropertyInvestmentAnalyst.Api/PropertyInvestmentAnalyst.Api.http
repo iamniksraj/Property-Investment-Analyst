@@ -1,0 +1,38 @@
+@host = http://localhost:5231
+
+GET {{host}}/api/health
+Accept: application/json
+
+###
+
+GET {{host}}/api/comparisons
+Accept: application/json
+
+###
+
+GET {{host}}/api/market-observations?locality=Whitefield
+Accept: application/json
+
+###
+
+GET {{host}}/api/market-observations/stats?locality=Whitefield&configuration=2%20BHK
+Accept: application/json
+
+###
+
+GET {{host}}/api/investment-analyst/status
+Accept: application/json
+
+###
+
+POST {{host}}/api/investment-analyst/ask
+Content-Type: application/json
+Accept: application/json
+
+{
+  "question": "What are the key risks in this analysis?",
+  "includeMarketEvidence": true,
+  "properties": []
+}
+
+###

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PropertyInvestmentAnalyst.Api.Tests/PropertyInvestmentAnalyst.Api.Tests.csproj" />
+  <Project Path="PropertyInvestmentAnalyst.Api/PropertyInvestmentAnalyst.Api.csproj" />
+</Solution>

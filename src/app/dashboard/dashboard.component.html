@@ -1,0 +1,448 @@
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Residential investment desk · Bengaluru</p>
+    <h1>Property Investment Analyst</h1>
+    <p class="subtitle">Make property decisions with numbers, not guesswork.</p>
+  </div>
+  <a class="btn-primary" href="#property-analysis">Analyse a Property</a>
+</header>
+
+<section class="workspace">
+  <form
+    id="property-analysis"
+    class="panel form-panel"
+    [formGroup]="form"
+    (ngSubmit)="onSubmit()"
+    novalidate
+  >
+    <div class="panel-heading">
+      <h2>Investment inputs</h2>
+      <p>Enter the apartment details you already have. All figures stay on this device.</p>
+    </div>
+
+    <div class="field-grid">
+      <label class="field field-span-2">
+        <span>Property name</span>
+        <input type="text" formControlName="propertyName" autocomplete="off" placeholder="e.g. Whitefield 2 BHK" />
+        @if (showError('propertyName')) {
+          <small class="error">Enter a property name.</small>
+        }
+      </label>
+
+      <label class="field">
+        <span>City</span>
+        <input type="text" formControlName="city" autocomplete="address-level2" />
+        @if (showError('city')) {
+          <small class="error">Enter a city.</small>
+        }
+      </label>
+
+      <label class="field">
+        <span>Locality</span>
+        <input type="text" formControlName="locality" autocomplete="address-level3" placeholder="e.g. HSR Layout" />
+        @if (showError('locality')) {
+          <small class="error">Enter a locality.</small>
+        }
+      </label>
+
+      <label class="field">
+        <span>Property type</span>
+        <input type="text" [value]="propertyType" readonly />
+      </label>
+
+      <label class="field">
+        <span>Purchase price (INR)</span>
+        <input type="number" formControlName="purchasePrice" min="1" step="1000" inputmode="numeric" placeholder="12000000" />
+        @if (showError('purchasePrice')) {
+          <small class="error">Enter a purchase price greater than zero.</small>
+        }
+      </label>
+
+      <label class="field">
+        <span>Super built-up area (sq. ft.)</span>
+        <input type="number" formControlName="superBuiltUpArea" min="1" step="1" inputmode="decimal" placeholder="1200" />
+        @if (showError('superBuiltUpArea')) {
+          <small class="error">Enter an area greater than zero.</small>
+        }
+      </label>
+
+      <label class="field">
+        <span>Expected monthly rent (INR)</span>
+        <input type="number" formControlName="expectedMonthlyRent" min="0" step="500" inputmode="numeric" placeholder="40000" />
+        @if (showError('expectedMonthlyRent')) {
+          <small class="error">Enter monthly rent as zero or more.</small>
+        }
+      </label>
+
+      <label class="field">
+        <span>Monthly maintenance (INR)</span>
+        <input type="number" formControlName="monthlyMaintenance" min="0" step="100" inputmode="numeric" placeholder="5000" />
+        @if (showError('monthlyMaintenance')) {
+          <small class="error">Enter monthly maintenance as zero or more.</small>
+        }
+      </label>
+    </div>
+
+    <div class="assumption-block">
+      <div class="panel-heading">
+        <h3>Loan and cash-flow assumptions</h3>
+        <p>
+          Starter values only — not verified Bengaluru market data. Rent, maintenance, tax and repairs
+          are treated as constant annual amounts (no growth).
+        </p>
+      </div>
+
+      <div class="field-grid">
+        <label class="field">
+          <span>Down payment (%)</span>
+          <input type="number" formControlName="downPaymentPercent" min="0" max="100" step="0.1" inputmode="decimal" />
+          <small class="assumption">Assumption · default {{ assumptions.downPaymentPercent }}%</small>
+          @if (showError('downPaymentPercent')) {
+            <small class="error">Enter a down payment between 0 and 100%.</small>
+          }
+        </label>
+
+        <label class="field">
+          <span>Annual interest rate (%)</span>
+          <input type="number" formControlName="annualInterestRatePercent" min="0" step="0.05" inputmode="decimal" />
+          <small class="assumption">Assumption · default {{ assumptions.annualInterestRatePercent }}% (reducing balance)</small>
+          @if (showError('annualInterestRatePercent')) {
+            <small class="error">Enter an interest rate of zero or more.</small>
+          }
+        </label>
+
+        <label class="field">
+          <span>Loan tenure (years)</span>
+          <input type="number" formControlName="loanTenureYears" min="0.01" step="1" inputmode="decimal" />
+          <small class="assumption">Assumption · default {{ assumptions.loanTenureYears }} years</small>
+          @if (showError('loanTenureYears')) {
+            <small class="error">Enter a loan tenure greater than zero.</small>
+          }
+        </label>
+
+        <label class="field">
+          <span>Holding period (years)</span>
+          <input type="number" formControlName="holdingPeriodYears" min="0" step="1" inputmode="decimal" />
+          <small class="assumption">Assumption · default {{ assumptions.holdingPeriodYears }} years</small>
+          @if (showError('holdingPeriodYears')) {
+            <small class="error">Enter a holding period of zero or more.</small>
+          }
+        </label>
+
+        <label class="field">
+          <span>One-time acquisition costs (% of price)</span>
+          <input type="number" formControlName="acquisitionCostPercent" min="0" step="0.1" inputmode="decimal" />
+          <small class="assumption">Assumption · default {{ assumptions.acquisitionCostPercent }}% (stamp duty, registration, brokerage-style costs)</small>
+          @if (showError('acquisitionCostPercent')) {
+            <small class="error">Enter acquisition costs as zero or more.</small>
+          }
+        </label>
+
+        <label class="field">
+          <span>Vacancy (%)</span>
+          <input type="number" formControlName="vacancyPercent" min="0" max="100" step="0.1" inputmode="decimal" />
+          <small class="assumption">Assumption · default {{ assumptions.vacancyPercent }}%</small>
+          @if (showError('vacancyPercent')) {
+            <small class="error">Enter vacancy between 0 and 100%.</small>
+          }
+        </label>
+
+        <label class="field">
+          <span>Annual property tax (INR)</span>
+          <input type="number" formControlName="annualPropertyTax" min="0" step="1000" inputmode="numeric" />
+          <small class="assumption">Assumption · default {{ assumptions.annualPropertyTax }} until you enter a figure</small>
+          @if (showError('annualPropertyTax')) {
+            <small class="error">Enter annual property tax as zero or more.</small>
+          }
+        </label>
+
+        <label class="field">
+          <span>Annual repair and maintenance (INR)</span>
+          <input type="number" formControlName="annualRepairAndMaintenance" min="0" step="1000" inputmode="numeric" />
+          <small class="assumption">Assumption · default {{ assumptions.annualRepairAndMaintenance }}; society charges stay in monthly maintenance</small>
+          @if (showError('annualRepairAndMaintenance')) {
+            <small class="error">Enter annual repairs as zero or more.</small>
+          }
+        </label>
+      </div>
+    </div>
+
+    <div class="assumption-block">
+      <div class="panel-heading">
+        <h3>Investment return scenarios</h3>
+        <p>
+          Illustrative modelling rates for the same property, loan and holding period — not verified
+          Bengaluru averages or forecasts. Phase 2 vacancy still applies only to the constant-rent snapshot above.
+        </p>
+      </div>
+
+      <div class="scenario-edit-grid">
+        @for (name of scenarioOrder; track name) {
+          <div class="scenario-edit" [formGroupName]="name">
+            <h4>{{ scenarioLabels[name] }}</h4>
+            <label class="field">
+              <span>Property appreciation (% / year)</span>
+              <input type="number" formControlName="propertyAppreciationPercent" min="0" step="0.1" inputmode="decimal" />
+              @if (showScenarioError(name, 'propertyAppreciationPercent')) {
+                <small class="error">Enter 0 or more.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Rent growth (% / year)</span>
+              <input type="number" formControlName="rentGrowthPercent" min="0" step="0.1" inputmode="decimal" />
+              @if (showScenarioError(name, 'rentGrowthPercent')) {
+                <small class="error">Enter 0 or more.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Vacancy (%)</span>
+              <input type="number" formControlName="vacancyPercent" min="0" max="100" step="0.1" inputmode="decimal" />
+              @if (showScenarioError(name, 'vacancyPercent')) {
+                <small class="error">Enter 0 to 100.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Operating-expense growth (% / year)</span>
+              <input type="number" formControlName="operatingExpenseGrowthPercent" min="0" step="0.1" inputmode="decimal" />
+              @if (showScenarioError(name, 'operatingExpenseGrowthPercent')) {
+                <small class="error">Enter 0 or more.</small>
+              }
+            </label>
+            <label class="field">
+              <span>Selling costs (% of exit value)</span>
+              <input type="number" formControlName="sellingCostPercent" min="0" max="100" step="0.1" inputmode="decimal" />
+              @if (showScenarioError(name, 'sellingCostPercent')) {
+                <small class="error">Enter 0 to 100.</small>
+              }
+            </label>
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary" (click)="onSubmit()">Calculate returns</button>
+      <p class="hint">Snapshot and cash-flow figures update as soon as the related inputs are valid.</p>
+    </div>
+  </form>
+
+  <section class="panel results-panel" aria-live="polite">
+    <div class="panel-heading">
+      <h2>Investment snapshot</h2>
+      <p>
+        @if (metrics && form.controls.propertyName.value) {
+          Estimates for {{ form.controls.propertyName.value }}
+          @if (form.controls.locality.value) {
+            in {{ form.controls.locality.value }}, {{ form.controls.city.value }}
+          }
+        } @else {
+          Yield snapshot plus mortgage and cash-flow estimates from the figures you enter.
+        }
+      </p>
+    </div>
+
+    @if (metrics) {
+      <dl class="metrics">
+        <div class="metric">
+          <dt>Purchase price per sq. ft.</dt>
+          <dd>{{ formatInr(metrics.pricePerSqFt, 2) }}</dd>
+        </div>
+        <div class="metric metric-accent">
+          <dt>Gross annual rental yield</dt>
+          <dd>{{ formatPercent(metrics.grossAnnualRentalYieldPercent) }}</dd>
+        </div>
+        <div class="metric">
+          <dt>Annual rental income</dt>
+          <dd>{{ formatInr(metrics.annualRentalIncome) }}</dd>
+        </div>
+        <div class="metric">
+          <dt>Estimated annual maintenance</dt>
+          <dd>{{ formatInr(metrics.estimatedAnnualMaintenance) }}</dd>
+        </div>
+        <div class="metric metric-span">
+          <dt>Net rental income before other expenses</dt>
+          <dd [class.negative]="metrics.netRentalIncomeBeforeOtherExpenses < 0">
+            {{ formatInr(metrics.netRentalIncomeBeforeOtherExpenses) }}
+          </dd>
+        </div>
+      </dl>
+    } @else {
+      <div class="empty-state">
+        <p>No estimates yet. Add a purchase price, super built-up area, monthly rent and monthly maintenance to see the snapshot.</p>
+      </div>
+    }
+
+    @if (mortgage) {
+      <div class="panel-heading cashflow-heading">
+        <h2>Mortgage and cash flow</h2>
+        <p>
+          Annual cash flow is after operating expenses and after 12 EMIs. Rent and operating costs are
+          held constant over the holding period.
+        </p>
+      </div>
+      <dl class="metrics">
+        <div class="metric">
+          <dt>Down payment</dt>
+          <dd>{{ formatInr(mortgage.downPaymentAmount) }}</dd>
+        </div>
+        <div class="metric">
+          <dt>Loan principal</dt>
+          <dd>{{ formatInr(mortgage.loanPrincipal) }}</dd>
+        </div>
+        <div class="metric">
+          <dt>Monthly EMI</dt>
+          <dd>{{ formatInr(mortgage.monthlyEmi, 2) }}</dd>
+        </div>
+        <div class="metric">
+          <dt>Acquisition costs</dt>
+          <dd>{{ formatInr(mortgage.acquisitionCostAmount) }}</dd>
+        </div>
+        <div class="metric metric-span">
+          <dt>Total cash to acquire</dt>
+          <dd>{{ formatInr(mortgage.totalInitialAcquisitionCash) }}</dd>
+        </div>
+        <div class="metric">
+          <dt>Annual potential rent</dt>
+          <dd>{{ formatInr(mortgage.annualPotentialRent) }}</dd>
+        </div>
+        <div class="metric">
+          <dt>Annual rent after vacancy</dt>
+          <dd>{{ formatInr(mortgage.annualRentAfterVacancy) }}</dd>
+        </div>
+        <div class="metric">
+          <dt>Annual operating expenses</dt>
+          <dd>{{ formatInr(mortgage.annualOperatingExpenses) }}</dd>
+        </div>
+        <div class="metric metric-accent">
+          <dt>Annual cash flow after opex and loan payments</dt>
+          <dd [class.negative]="mortgage.annualCashFlowAfterOperatingExpensesAndLoanPayments < 0">
+            {{ formatInr(mortgage.annualCashFlowAfterOperatingExpensesAndLoanPayments) }}
+          </dd>
+        </div>
+        <div class="metric metric-span">
+          <dt>Outstanding loan after holding period</dt>
+          <dd>{{ formatInr(mortgage.outstandingLoanBalanceAfterHoldingPeriod) }}</dd>
+        </div>
+      </dl>
+    }
+  </section>
+</section>
+
+@if (scenarios) {
+  <section class="panel scenario-panel" aria-live="polite">
+    <div class="panel-heading">
+      <h2>Investment return scenarios</h2>
+      <p>
+        Hypothetical paths for the same purchase, loan and holding period. Annual cash flows are
+        modelled at year-end. The exit sale is added only in the final year. These are not guaranteed
+        returns.
+      </p>
+    </div>
+
+    <div class="scenario-cards">
+      @for (scenario of scenarios; track scenario.name) {
+        <article class="scenario-card">
+          <h3>{{ scenarioLabels[scenario.name] }}</h3>
+          <p class="assumption">
+            Appreciation {{ scenario.assumptions.propertyAppreciationPercent }}% ·
+            Rent growth {{ scenario.assumptions.rentGrowthPercent }}% ·
+            Vacancy {{ scenario.assumptions.vacancyPercent }}% ·
+            Opex growth {{ scenario.assumptions.operatingExpenseGrowthPercent }}% ·
+            Selling costs {{ scenario.assumptions.sellingCostPercent }}%
+          </p>
+          <dl class="metrics scenario-metrics">
+            <div class="metric">
+              <dt>Gross property value change</dt>
+              <dd>{{ formatPercent(scenario.grossPropertyAppreciationPercent) }}</dd>
+            </div>
+            <div class="metric">
+              <dt>Projected property value at exit</dt>
+              <dd>{{ formatInr(scenario.exitPropertyValue) }}</dd>
+            </div>
+            <div class="metric">
+              <dt>Outstanding loan at exit</dt>
+              <dd>{{ formatInr(scenario.outstandingLoanAtExit) }}</dd>
+            </div>
+            <div class="metric">
+              <dt>Selling costs</dt>
+              <dd>{{ formatInr(scenario.sellingCosts) }}</dd>
+            </div>
+            <div class="metric">
+              <dt>Net sale proceeds</dt>
+              <dd>{{ formatInr(scenario.netSaleProceeds) }}</dd>
+            </div>
+            <div class="metric">
+              <dt>Cumulative cash flow after debt service</dt>
+              <dd [class.negative]="scenario.cumulativeRentalCashFlowAfterDebtService < 0">
+                {{ formatInr(scenario.cumulativeRentalCashFlowAfterDebtService) }}
+              </dd>
+            </div>
+            <div class="metric">
+              <dt>Total cash received</dt>
+              <dd>{{ formatInr(scenario.totalCashReceived) }}</dd>
+            </div>
+            <div class="metric">
+              <dt>Net profit (not an annualised return)</dt>
+              <dd [class.negative]="scenario.netProfit < 0">{{ formatInr(scenario.netProfit) }}</dd>
+            </div>
+            <div class="metric metric-accent metric-span">
+              <dt>Annualised equity IRR</dt>
+              <dd>
+                {{ formatIrr(scenario.annualisedEquityIrr) }}
+                @if (scenario.annualisedEquityIrr === null && scenario.irrUnavailableReason) {
+                  <small class="assumption">{{ scenario.irrUnavailableReason }}</small>
+                }
+              </dd>
+            </div>
+          </dl>
+        </article>
+      }
+    </div>
+
+    <div class="compare-chart">
+      <h3>Net profit comparison</h3>
+      <p class="assumption">Bar length is relative to the largest absolute net profit among the three scenarios.</p>
+      @for (scenario of scenarios; track scenario.name) {
+        <div class="bar-row">
+          <span>{{ scenarioLabels[scenario.name] }}</span>
+          <div class="bar-track">
+            <div
+              class="bar-fill"
+              [class.bar-negative]="scenario.netProfit < 0"
+              [style.width.%]="profitBarWidth(scenario.netProfit)"
+            ></div>
+          </div>
+          <span [class.negative]="scenario.netProfit < 0">{{ formatInr(scenario.netProfit) }}</span>
+        </div>
+      }
+    </div>
+  </section>
+}
+
+<section class="panel disclaimer">
+  <h2>Assumptions and disclaimer</h2>
+  <p>
+    Yield snapshot figures still use only purchase price, area, monthly rent and monthly society
+    maintenance. Gross yield uses potential rent (not vacancy-adjusted).
+  </p>
+  <p>
+    Mortgage figures use reducing-balance EMI. Cash flow is after operating expenses (society
+    maintenance + property tax + repairs) and after annual loan payments. Rent and those expenses are
+    modelled as flat annual amounts; there is no rent growth, inflation, tax change, prepayment or
+    extra principal.
+  </p>
+  <p>
+    Scenario paths grow property value, rent and operating expenses from year 0 at the rates you type.
+    Year 0 is the purchase (down payment + acquisition costs). Years 1 to the holding period are
+    end-of-year operating cash flows after actual EMIs. The sale is applied only in the final year:
+    exit value minus selling costs minus remaining loan. After the loan tenure, EMI is zero.
+    Conservative / base / optimistic defaults are editable illustrations, not market forecasts.
+  </p>
+  <p>
+    Gross property value change is not the same as rental yield, cash flow after financing, net profit
+    or annualised equity IRR. IRR uses the equity cash-flow series only; it is shown as “Not available”
+    when a finite rate does not exist. Property Investment Analyst does not fetch live Bengaluru prices.
+    Nothing on this page is a buy, negotiate or avoid recommendation, nor is it financial, legal or tax
+    advice.
+  </p>
+</section>
